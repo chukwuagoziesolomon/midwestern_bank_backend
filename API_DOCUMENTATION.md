@@ -2,7 +2,7 @@
 
 This document describes the API endpoints for the Bank App backend.
 
-Base URL: `http://localhost:8000/api/`
+Base URL: `http://localhost:8000/`
 
 ## Authentication
 - The app uses email and password for login.

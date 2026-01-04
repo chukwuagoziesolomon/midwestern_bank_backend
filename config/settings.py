@@ -27,8 +27,16 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-pqx4mpzrk)!#46w9(+_*#&pm1_
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,midwestern-bank-backend.onrender.com').split(',')
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'midwestern-bank-backend.onrender.com',
+    '.onrender.com',  # Allows all *.onrender.com subdomains
+]
 
+# Or if you set ALLOWED_HOSTS via environment variable:
+if os.getenv('ALLOWED_HOSTS'):
+    ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS').split(',')]
 
 # Application definition
 

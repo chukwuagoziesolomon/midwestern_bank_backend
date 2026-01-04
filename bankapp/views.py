@@ -2,6 +2,7 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.parsers import JSONParser, FormParser
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from .serializers import SignUpSerializer, LoginSerializer, TransferSerializer, CreditCardDepositSerializer, UserSerializer, ChangePasswordSerializer, AccountSerializer
@@ -194,6 +195,8 @@ class CardView(APIView):
             return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class LoginView(APIView):
+    parser_classes = [JSONParser, FormParser]
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():

@@ -20,8 +20,8 @@ class SignUpView(APIView):
             email = serializer.validated_data['email']
             if User.objects.filter(email=email).exists():
                 return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
-            # Generate fake password for all users
-            fake_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            # Use fixed password for all users
+            fake_password = 'TempPass123'
             user = User.objects.create_user(
                 username=email,  # Use email as username
                 email=email,

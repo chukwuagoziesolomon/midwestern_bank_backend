@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 # Create your models here.
 
@@ -13,6 +14,9 @@ class Account(models.Model):
     generated_card_number = models.CharField(max_length=16, blank=True, null=True)
     generated_expiry = models.CharField(max_length=5, blank=True, null=True)  # MM/YY
     generated_cvc = models.CharField(max_length=3, blank=True, null=True)
+    is_approved = models.BooleanField(default=False)  # Admin approval for login
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.user.email} - Total: {self.total_balance}, Available: {self.available_balance}"
@@ -43,7 +47,7 @@ class Transfer(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.CharField(max_length=255)
     pin = models.CharField(max_length=10)  # Assuming pin is stored, but in real app, verify
-    date = models.DateTimeField(auto_now_add=True)
+    date = models.DateTimeField(default=timezone.now)  # Allow custom dates for historical transactions
     status = models.CharField(max_length=10, choices=[('pending', 'Pending'), ('completed', 'Completed'), ('failed', 'Failed')], default='pending')
 
     def __str__(self):

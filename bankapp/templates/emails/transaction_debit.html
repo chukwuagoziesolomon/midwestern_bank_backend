@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Alert - Money Transferred</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+            line-height: 1.8;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f0f4f8 0%, #e9f0f7 100%);
+            padding: 20px;
+        }
+        
+        .email-container {
+            max-width: 650px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 51, 102, 0.08);
+            overflow: hidden;
+        }
+        
+        .email-header {
+            background: linear-gradient(135deg, #0066cc 0%, #004ba3 100%);
+            color: white;
+            padding: 50px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .email-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            transform: translate(50%, -50%);
+        }
+        
+        .email-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            left: -30px;
+            width: 150px;
+            height: 150px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 50%;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .alert-icon {
+            font-size: 56px;
+            margin-bottom: 15px;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .email-header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .email-header p {
+            font-size: 15px;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+        
+        .email-body {
+            padding: 45px 35px;
+        }
+        
+        .greeting {
+            color: #0066cc;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .intro-text {
+            color: #555;
+            margin-bottom: 30px;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+        
+        .amount-highlight {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f5f9ff 100%);
+            border: 2px solid #0066cc;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        
+        .amount-text {
+            color: #0066cc;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        
+        .amount-value {
+            font-size: 42px;
+            color: #0066cc;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        
+        .transaction-details {
+            background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);
+            border: 1px solid #d4e6f1;
+            border-left: 4px solid #0066cc;
+            padding: 25px;
+            margin: 30px 0;
+            border-radius: 12px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e8f2;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #555;
+            flex: 1;
+            font-size: 14px;
+        }
+        
+        .detail-value {
+            text-align: right;
+            color: #2c3e50;
+            flex: 1;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .transaction-id {
+            font-size: 12px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            color: #0066cc;
+            background: #e8f2ff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        
+        .info-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e8f4ff 100%);
+            border-left: 4px solid #0066cc;
+            padding: 18px;
+            margin: 20px 0;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #003d7a;
+            line-height: 1.7;
+        }
+        
+        .info-section strong {
+            color: #0066cc;
+            font-weight: 700;
+        }
+        
+        .info-icon {
+            margin-right: 8px;
+        }
+        
+        .action-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #0066cc 0%, #004ba3 100%);
+            color: white;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-top: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 102, 204, 0.25);
+            font-size: 15px;
+        }
+        
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 102, 204, 0.35);
+        }
+        
+        .security-note {
+            background: linear-gradient(135deg, #fff8f0 0%, #fffbf5 100%);
+            border-left: 4px solid #ff9800;
+            padding: 18px;
+            margin: 25px 0;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #5d4037;
+            line-height: 1.7;
+        }
+        
+        .security-note strong {
+            color: #d84315;
+            font-weight: 700;
+        }
+        
+        .email-footer {
+            background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);
+            color: #555;
+            text-align: center;
+            padding: 35px 25px;
+            font-size: 12px;
+            border-top: 1px solid #e0e8f2;
+        }
+        
+        .footer-links {
+            margin-bottom: 15px;
+        }
+        
+        .footer-links a {
+            color: #0066cc;
+            text-decoration: none;
+            margin: 0 12px;
+            transition: color 0.3s;
+            font-weight: 500;
+        }
+        
+        .footer-links a:hover {
+            color: #004ba3;
+            text-decoration: underline;
+        }
+        
+        .divider {
+            border-top: 1px solid #e0e8f2;
+            margin: 18px 0;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #0066cc;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .footer-copyright {
+            color: #999;
+            margin-top: 15px;
+            font-size: 11px;
+        }
+        
+        @media (max-width: 600px) {
+            .email-container {
+                border-radius: 8px;
+            }
+            
+            .email-header {
+                padding: 35px 20px;
+            }
+            
+            .email-header h1 {
+                font-size: 26px;
+            }
+            
+            .email-body {
+                padding: 25px 20px;
+            }
+            
+            .amount-value {
+                font-size: 32px;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+                padding: 10px 0;
+            }
+            
+            .detail-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+            
+            .action-button {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="email-header">
+            <div class="header-content">
+                <div class="alert-icon">💳</div>
+                <h1>Money Transferred</h1>
+                <p>Transaction completed successfully</p>
+            </div>
+        </div>
+        
+        <!-- Body -->
+        <div class="email-body">
+            <div class="greeting">
+                Hello {{ user_name }},
+            </div>
+            
+            <div class="intro-text">
+                Your transfer has been successfully processed. Money has been deducted from your account and is on its way to the recipient.
+            </div>
+            
+            <!-- Amount Highlight -->
+            <div class="amount-highlight">
+                <div class="amount-text">Amount Transferred</div>
+                <div class="amount-value">{{ currency }}{{ amount }}</div>
+                <span class="status-badge">✓ Completed</span>
+            </div>
+            
+            <!-- Transaction Details -->
+            <div class="transaction-details">
+                <div class="detail-row">
+                    <span class="detail-label">Recipient</span>
+                    <span class="detail-value">{{ receiver_name }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Bank</span>
+                    <span class="detail-value">{{ receiver_bank }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Account Number</span>
+                    <span class="detail-value">{{ receiver_account_number }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Transfer Type</span>
+                    <span class="detail-value">{{ transfer_type }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Reference</span>
+                    <span class="detail-value">{{ description }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Date & Time</span>
+                    <span class="detail-value">{{ transaction_date }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Transaction ID</span>
+                    <span class="detail-value"><span class="transaction-id">{{ transaction_id }}</span></span>
+                </div>
+            </div>
+            
+            <!-- Updated Balance -->
+            <div class="info-section">
+                <span class="info-icon">💰</span><strong>Your Updated Balance</strong><br>
+                Available: <strong>{{ currency }}{{ available_balance }}</strong><br>
+                Total: <strong>{{ currency }}{{ total_balance }}</strong>
+            </div>
+            
+            <!-- Security Note -->
+            <div class="security-note">
+                <strong>🔒 Security Alert:</strong><br>
+                If this wasn't you or you notice anything unusual, contact support immediately at {{ support_email }} or {{ support_phone }}.
+            </div>
+            
+            <!-- Action Button -->
+            <center>
+                <a href="{{ dashboard_url }}" class="action-button">View Full Details</a>
+            </center>
+        </div>
+        
+        <!-- Footer -->
+        <div class="email-footer">
+            <div class="footer-links">
+                <a href="{{ support_url }}">Support</a>
+                <a href="{{ settings_url }}">Settings</a>
+                <a href="{{ help_url }}">Help</a>
+            </div>
+            <div class="divider"></div>
+            <div class="footer-copyright">
+                © {{ current_year }} {{ bank_name }}. All rights reserved.<br>
+                This is an automated message. Please do not reply to this email.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

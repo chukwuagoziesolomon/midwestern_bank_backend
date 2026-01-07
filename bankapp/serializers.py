@@ -17,7 +17,7 @@ class TransferSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transfer
         fields = ['id', 'transfer_type', 'receiver_name', 'receiver_bank', 'receiver_account_number', 'routing_number', 'receiver_bank_address', 'iban', 'swift_code', 'amount', 'description', 'pin', 'date', 'status']
-        read_only_fields = ['id', 'date', 'status']
+        read_only_fields = ['id', 'status']
 
     def validate(self, data):
         transfer_type = data.get('transfer_type')
@@ -63,3 +63,47 @@ class AccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = Account
         fields = ['total_balance', 'available_balance', 'loans_due', 'mortgage_due']
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    account = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'email', 'date_joined', 'account']
+    
+    def get_account(self, obj):
+        try:
+            account = Account.objects.get(user=obj)
+            return {
+                'is_approved': account.is_approved,
+                'total_balance': str(account.total_balance),
+                'available_balance': str(account.available_balance),
+                'transfer_count': account.transfer_count,
+                'created_at': account.created_at,
+                'updated_at': account.updated_at
+            }
+        except Account.DoesNotExist:
+            return None
+
+
+class AdminUserDetailSerializer(serializers.ModelSerializer):
+    account = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'email', 'date_joined', 'account']
+    
+    def get_account(self, obj):
+        try:
+            account = Account.objects.get(user=obj)
+            return {
+                'is_approved': account.is_approved,
+                'total_balance': str(account.total_balance),
+                'available_balance': str(account.available_balance),
+                'transfer_count': account.transfer_count,
+                'created_at': account.created_at,
+                'updated_at': account.updated_at
+            }
+        except Account.DoesNotExist:
+            return None

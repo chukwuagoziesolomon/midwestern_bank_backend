@@ -5,8 +5,10 @@ from rest_framework import status
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .serializers import SignUpSerializer, LoginSerializer, TransferSerializer, CreditCardDepositSerializer, UserSerializer, ChangePasswordSerializer, AccountSerializer
+from .serializers import SignUpSerializer, LoginSerializer, TransferSerializer, CreditCardDepositSerializer, UserSerializer, ChangePasswordSerializer, AccountSerializer, AdminUserListSerializer, AdminUserDetailSerializer
 from .models import Transfer, Account, CreditCardDeposit
+from .services import TransactionEmailService
+from .transaction_generator import DummyTransactionGenerator
 from django.utils import timezone
 import random
 import string
@@ -75,6 +77,22 @@ class TransferView(APIView):
                     account.save()
                     transfer.status = 'completed'
                     transfer.save()
+                    
+                    # Send debit alert to sender (user)
+                    TransactionEmailService.send_debit_alert(user, account, transfer)
+                    
+                    # Send credit alert to receiver
+                    # Note: Receiver email should be captured from request or computed
+                    receiver_email = request.data.get('receiver_email')
+                    if receiver_email:
+                        TransactionEmailService.send_credit_alert(
+                            receiver_email,
+                            transfer.receiver_name,
+                            user,
+                            account,
+                            transfer
+                        )
+                    
                     return Response({'message': 'Transfer created successfully', 'transfer': serializer.data}, status=status.HTTP_201_CREATED)
                 else:
                     transfer.status = 'failed'
@@ -204,10 +222,188 @@ class LoginView(APIView):
             password = serializer.validated_data['password']
             try:
                 user = User.objects.get(email=email)
+                
+                # Auto-create Account if it doesn't exist (for superusers)
+                account, created = Account.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'generated_card_number': ''.join(random.choices('0123456789', k=16)),
+                        'generated_expiry': f"{random.randint(1,12):02d}/{random.randint(25,30)}",
+                        'generated_cvc': ''.join(random.choices('0123456789', k=3)),
+                        'is_approved': user.is_superuser  # Auto-approve superusers
+                    }
+                )
+                
+                # Check if account is approved
+                if not account.is_approved:
+                    return Response(
+                        {'error': 'Your account is not yet approved. Please wait for admin approval.'}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                
                 if user.check_password(password):
-                    return Response({'message': 'Login successful', 'user': {'id': user.id, 'email': user.email, 'first_name': user.first_name, 'last_name': user.last_name}}, status=status.HTTP_200_OK)
+                    return Response({
+                        'message': 'Login successful', 
+                        'user': {
+                            'id': user.id, 
+                            'email': user.email, 
+                            'first_name': user.first_name, 
+                            'last_name': user.last_name,
+                            'is_approved': account.is_approved,
+                            'is_superuser': user.is_superuser
+                        }
+                    }, status=status.HTTP_200_OK)
                 else:
                     return Response({'error': 'Invalid password'}, status=status.HTTP_401_UNAUTHORIZED)
             except User.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==================== ADMIN ENDPOINTS ====================
+
+class AdminUserListView(APIView):
+    """List all users with their approval status for admin dashboard"""
+    
+    def get(self, request):
+        try:
+            users = User.objects.all()
+            serializer = AdminUserListSerializer(users, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminUserDetailView(APIView):
+    """Get detailed info about a specific user"""
+    
+    def get(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            serializer = AdminUserDetailSerializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminApproveUserView(APIView):
+    """Approve/Activate a user account for login with optional custom transaction date range"""
+    
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            account = Account.objects.get(user=user)
+            
+            action = request.data.get('action', 'approve')  # 'approve' or 'reject'
+            
+            if action == 'approve':
+                account.is_approved = True
+                account.save()
+                
+                # Get optional custom date range from request
+                start_date = request.data.get('start_date', None)  # Format: YYYY-MM-DD
+                end_date = request.data.get('end_date', None)      # Format: YYYY-MM-DD
+                
+                # Generate dummy transaction history when approving
+                DummyTransactionGenerator.generate_transactions_for_user(
+                    user, 
+                    num_transactions=15,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                DummyTransactionGenerator.generate_deposit_history_for_user(
+                    user, 
+                    num_deposits=5,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                
+                date_info = ""
+                if start_date or end_date:
+                    date_info = f" (Transactions from {start_date or 'Dec 1, 2023'} to {end_date or 'Today'})"
+                
+                return Response({
+                    'message': f'User {user.email} has been approved and can now login. Transaction history generated{date_info}.',
+                    'user': {
+                        'id': user.id,
+                        'email': user.email,
+                        'is_approved': account.is_approved,
+                        'initial_balance': str(account.total_balance),
+                        'transactions_generated': 15,
+                        'start_date': start_date or '2023-12-01',
+                        'end_date': end_date or 'Today'
+                    }
+                }, status=status.HTTP_200_OK)
+            
+            elif action == 'reject':
+                account.is_approved = False
+                account.save()
+                return Response({
+                    'message': f'User {user.email} has been rejected',
+                    'user': {
+                        'id': user.id,
+                        'email': user.email,
+                        'is_approved': account.is_approved
+                    }
+                }, status=status.HTTP_200_OK)
+            
+            else:
+                return Response({'error': 'Invalid action. Use "approve" or "reject"'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Account.DoesNotExist:
+            return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminResetTransfersView(APIView):
+    """Reset transfer count for a user"""
+    
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            account = Account.objects.get(user=user)
+            
+            # Reset transfer count
+            account.transfer_count = 0
+            account.save()
+            
+            return Response({
+                'message': f'Transfer count reset for user {user.email}',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'transfer_count': account.transfer_count
+                }
+            }, status=status.HTTP_200_OK)
+        
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Account.DoesNotExist:
+            return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminDeleteUserView(APIView):
+    """Delete a user account completely"""
+    
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            email = user.email
+            user.delete()
+            
+            return Response({
+                'message': f'User {email} has been deleted',
+                'deleted_user_id': user_id
+            }, status=status.HTTP_200_OK)
+        
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

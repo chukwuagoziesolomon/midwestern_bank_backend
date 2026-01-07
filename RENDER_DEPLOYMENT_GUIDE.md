@@ -1,5 +1,44 @@
 # 🚀 Render Deployment Guide - Midwestern Bank
 
+## ⚠️ CRITICAL: Admin Account Setup on Render
+
+### The Problem
+If you're getting **401 Unauthorized** errors when trying to login in production, it's because the admin account isn't being created automatically on Render.
+
+### The Solution - Set These Environment Variables on Render
+
+Go to your Render service dashboard → **Environment** → Add these variables:
+
+```
+ADMIN_EMAIL=admin@midwesternbank.com
+ADMIN_PASSWORD=YourSecurePassword123!
+ADMIN_FIRST_NAME=Admin
+ADMIN_LAST_NAME=User
+```
+
+**⚠️ Replace `YourSecurePassword123!` with a strong password YOU will use to login.**
+
+### Then Redeploy
+
+1. Make sure changes are committed and pushed to main
+2. Go to Render dashboard → **Deploys** tab
+3. Click **Clear build cache & redeploy**
+4. Wait for deployment to complete
+5. Check logs for: `✅ Admin account setup successful`
+
+### Test Admin Login
+
+```bash
+curl -X POST https://midwestern-bank-backend.onrender.com/api/login/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@midwesternbank.com",
+    "password": "YourSecurePassword123!"
+  }'
+```
+
+---
+
 ## Overview
 
 This guide explains how to deploy the Midwestern Bank backend to Render with automatic superuser creation.

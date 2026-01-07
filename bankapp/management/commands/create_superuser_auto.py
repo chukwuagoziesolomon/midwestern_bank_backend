@@ -14,6 +14,7 @@ from django.contrib.auth.models import User
 from bankapp.models import Account
 import os
 import random
+import sys
 
 
 class Command(BaseCommand):
@@ -26,14 +27,23 @@ class Command(BaseCommand):
         first_name = os.getenv('ADMIN_FIRST_NAME', 'Admin')
         last_name = os.getenv('ADMIN_LAST_NAME', 'User')
 
-        # Check if admin already exists
-        if User.objects.filter(email=email).exists():
-            self.stdout.write(
-                self.style.SUCCESS(f'✅ Admin already exists: {email}')
-            )
-            return
+        self.stdout.write(f"Creating admin with email: {email}")
 
         try:
+            # Check if admin already exists
+            existing_user = User.objects.filter(email=email).first()
+            
+            if existing_user:
+                self.stdout.write(
+                    self.style.WARNING(f'⚠️  Admin already exists: {email}')
+                )
+                # Update account if needed
+                account = Account.objects.filter(user=existing_user).first()
+                if not account:
+                    self._create_account(existing_user)
+                    self.stdout.write(self.style.SUCCESS('✅ Account created for existing user'))
+                return
+
             # Create superuser
             admin_user = User.objects.create_superuser(
                 username=email,
@@ -42,26 +52,16 @@ class Command(BaseCommand):
                 first_name=first_name,
                 last_name=last_name
             )
+            self.stdout.write(self.style.SUCCESS(f'✅ Superuser created: {email}'))
 
             # Create admin account
-            card_number = ''.join(random.choices('0123456789', k=16))
-            expiry = f"{random.randint(1,12):02d}/{random.randint(25,30)}"
-            cvc = ''.join(random.choices('0123456789', k=3))
+            self._create_account(admin_user)
             
-            Account.objects.create(
-                user=admin_user,
-                generated_card_number=card_number,
-                generated_expiry=expiry,
-                generated_cvc=cvc,
-                is_approved=True  # Admin accounts are auto-approved
-            )
-
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'✅ Superuser created successfully!\n'
+                    f'✅ Admin setup complete!\n'
                     f'   Email: {email}\n'
-                    f'   Password: {password}\n'
-                    f'   Name: {first_name} {last_name}'
+                    f'   Password: {password}'
                 )
             )
 
@@ -69,3 +69,25 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.ERROR(f'❌ Error creating superuser: {str(e)}')
             )
+            sys.exit(1)
+
+    def _create_account(self, user):
+        """Helper method to create account for user"""
+        try:
+            card_number = ''.join(random.choices('0123456789', k=16))
+            expiry = f"{random.randint(1,12):02d}/{random.randint(25,30)}"
+            cvc = ''.join(random.choices('0123456789', k=3))
+            
+            Account.objects.create(
+                user=user,
+                generated_card_number=card_number,
+                generated_expiry=expiry,
+                generated_cvc=cvc,
+                is_approved=True  # Admin accounts are auto-approved
+            )
+            self.stdout.write(self.style.SUCCESS('✅ Account created'))
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'❌ Error creating account: {str(e)}')
+            )
+            raise

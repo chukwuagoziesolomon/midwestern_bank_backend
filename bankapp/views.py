@@ -22,12 +22,13 @@ class SignUpView(APIView):
             email = serializer.validated_data['email']
             if User.objects.filter(email=email).exists():
                 return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
-            # Use fixed password for all users
-            fake_password = 'TempPass123'
+            
+            # Use password provided by user
+            password = serializer.validated_data['password']
             user = User.objects.create_user(
                 username=email,  # Use email as username
                 email=email,
-                password=fake_password,
+                password=password,
                 first_name=serializer.validated_data['first_name'],
                 last_name=serializer.validated_data['last_name']
             )
@@ -41,7 +42,54 @@ class SignUpView(APIView):
                 generated_expiry=expiry,
                 generated_cvc=cvc
             )
-            return Response({'message': 'User created successfully', 'password': fake_password}, status=status.HTTP_201_CREATED)
+            
+            # Send welcome email with credentials
+            try:
+                from django.core.mail import send_mail
+                full_name = f"{user.first_name} {user.last_name}"
+                subject = 'Welcome to Midwestern Bank - Your Account Created'
+                message = f"""
+Hello {full_name},
+
+Welcome to Midwestern Bank! Your account has been created successfully.
+
+Your Account Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Email: {email}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 Next Steps:
+1. Wait for admin approval (you'll receive an email confirmation)
+2. Once approved, login to your account using your email and password
+3. You'll receive a $70,000 balance + transaction history
+
+⚠️  Important:
+- Your account is currently pending admin approval
+- Only approved accounts can login
+- Keep your credentials safe and secure
+- Do not share your password with anyone
+
+If you have any questions, contact us at support@midwesternbank.com
+
+Best regards,
+Midwestern Bank Team
+                """
+                send_mail(
+                    subject,
+                    message,
+                    'noreply@midwesternbank.com',
+                    [email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                print(f"Email sending failed: {str(e)}")
+            
+            return Response({
+                'message': 'User created successfully. Check your email for confirmation.',
+                'email': email,
+                'status': 'pending_approval',
+                'note': 'A confirmation email has been sent. Your account is pending admin approval.'
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TransferView(APIView):

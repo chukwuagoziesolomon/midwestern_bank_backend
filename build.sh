@@ -8,16 +8,16 @@ echo "🚀 Starting Midwestern Bank deployment..."
 
 # Install Python dependencies
 echo "📦 Installing dependencies..."
-pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 
 # Run migrations
 echo "🗄️ Running database migrations..."
-python manage.py migrate
+python manage.py migrate --noinput
 
 # Collect static files
 echo "📁 Collecting static files..."
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput --clear
 
 # Create superuser if it doesn't exist
 echo "👤 Setting up admin account..."

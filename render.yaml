@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: midwestern-bank-api
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "bash build.sh"
+    startCommand: "gunicorn config.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: PIP_INSTALL_TIMEOUT
+        value: "900"

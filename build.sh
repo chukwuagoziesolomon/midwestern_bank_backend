@@ -17,7 +17,7 @@ python manage.py migrate --noinput
 
 # Collect static files
 echo "📁 Collecting static files..."
-python manage.py collectstatic --noinput --clear
+python manage.py collectstatic --noinput || true
 
 # Create superuser if it doesn't exist
 echo "👤 Setting up admin account..."

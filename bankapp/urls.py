@@ -17,4 +17,5 @@ urlpatterns = [
     path('admin/users/<int:user_id>/approve/', views.AdminApproveUserView.as_view(), name='admin-approve-user'),
     path('admin/users/<int:user_id>/reset-transfers/', views.AdminResetTransfersView.as_view(), name='admin-reset-transfers'),
     path('admin/users/<int:user_id>/delete/', views.AdminDeleteUserView.as_view(), name='admin-delete-user'),
+    path('admin/users/<int:user_id>/increase-balance/', views.AdminIncreaseBalanceView.as_view(), name='admin-increase-balance'),
 ]

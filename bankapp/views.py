@@ -10,6 +10,7 @@ from .models import Transfer, Account, CreditCardDeposit
 from .services import TransactionEmailService
 from .transaction_generator import DummyTransactionGenerator
 from django.utils import timezone
+from decimal import Decimal, InvalidOperation
 import random
 import string
 
@@ -453,5 +454,62 @@ class AdminDeleteUserView(APIView):
         
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminIncreaseBalanceView(APIView):
+    """Increase account balance and available balance for a user"""
+    
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            account = Account.objects.get(user=user)
+            
+            # Get the amount to increase from request
+            increase_amount = request.data.get('amount', None)
+            
+            if not increase_amount:
+                return Response({
+                    'error': 'Amount is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                increase_amount = Decimal(str(increase_amount))
+                if increase_amount <= 0:
+                    return Response({
+                        'error': 'Amount must be greater than 0'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, InvalidOperation):
+                return Response({
+                    'error': 'Invalid amount format'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Store old balances for response
+            old_total_balance = account.total_balance
+            old_available_balance = account.available_balance
+            
+            # Increase both balances
+            account.total_balance += increase_amount
+            account.available_balance += increase_amount
+            account.save()
+            
+            return Response({
+                'message': f'Successfully increased balance for {user.email}',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'increase_amount': str(increase_amount),
+                    'old_total_balance': str(old_total_balance),
+                    'new_total_balance': str(account.total_balance),
+                    'old_available_balance': str(old_available_balance),
+                    'new_available_balance': str(account.available_balance)
+                }
+            }, status=status.HTTP_200_OK)
+        
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Account.DoesNotExist:
+            return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

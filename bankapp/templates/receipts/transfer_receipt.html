@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>{{ transaction_id }} - Transfer Receipt</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #222; padding: 24px; }
+    .header { display:flex; justify-content:space-between; align-items:center; }
+    .bank { font-size:20px; font-weight:700; }
+    .meta { text-align:right; font-size:12px; color:#666; }
+    .card { border:1px solid #e0e0e0; padding:18px; margin-top:18px; border-radius:6px; }
+    .row { display:flex; justify-content:space-between; margin:8px 0; }
+    .label { color:#666; font-size:12px; }
+    .value { font-size:14px; font-weight:600; }
+    .amount { font-size:22px; color:#0a6; font-weight:800; }
+    .small { font-size:12px; color:#666; }
+    footer { margin-top:20px; font-size:12px; color:#666; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="bank">{{ bank_name }}</div>
+    <div class="meta">
+      <div>{{ transaction_date }}</div>
+      <div>Receipt ID: {{ transaction_id }}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="label">Sender</div>
+        <div class="value">{{ user_name }}</div>
+        <div class="small">{{ support_email }}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="label">Amount</div>
+        <div class="amount">{{ currency }} {{ amount }}</div>
+      </div>
+    </div>
+
+    <hr />
+
+    <div class="row">
+      <div>
+        <div class="label">Recipient</div>
+        <div class="value">{{ receiver_name }}</div>
+        <div class="small">{{ receiver_bank }} — {{ receiver_account_number }}</div>
+      </div>
+      <div>
+        <div class="label">Transfer Type</div>
+        <div class="value">{{ transfer_type }}</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <div class="label">Description</div>
+      <div class="small">{{ description }}</div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <div class="label">Available Balance</div>
+      <div class="value">{{ currency }} {{ available_balance }}</div>
+    </div>
+  </div>
+
+  <footer>
+    <div>If you did not authorize this transaction, contact support: {{ support_email }} | {{ support_phone }}</div>
+    <div style="margin-top:6px;">© {{ current_year }} {{ bank_name }}</div>
+  </footer>
+</body>
+</html>

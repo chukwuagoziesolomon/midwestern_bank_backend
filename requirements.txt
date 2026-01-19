@@ -6,3 +6,5 @@ djangorestframework==3.16.1
 psycopg2-binary==2.9.11
 sqlparse==0.5.5
 tzdata==2025.3
+xhtml2pdf==0.2.10
+imgkit==1.2.2

@@ -13,6 +13,18 @@ from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 import random
 import string
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+import io
+try:
+    from xhtml2pdf import pisa
+except Exception:
+    pisa = None
+from django.urls import reverse
+try:
+    import imgkit
+except Exception:
+    imgkit = None
 
 # Create your views here.
 
@@ -126,12 +138,11 @@ class TransferView(APIView):
                     account.save()
                     transfer.status = 'completed'
                     transfer.save()
-                    
+
                     # Send debit alert to sender (user)
                     TransactionEmailService.send_debit_alert(user, account, transfer)
-                    
+
                     # Send credit alert to receiver
-                    # Note: Receiver email should be captured from request or computed
                     receiver_email = request.data.get('receiver_email')
                     if receiver_email:
                         TransactionEmailService.send_credit_alert(
@@ -141,8 +152,13 @@ class TransferView(APIView):
                             account,
                             transfer
                         )
-                    
-                    return Response({'message': 'Transfer created successfully', 'transfer': serializer.data}, status=status.HTTP_201_CREATED)
+
+                    # Build receipt URLs for frontend modal
+                    html_url = request.build_absolute_uri(reverse('transfer-receipt', args=[transfer.id])) + f"?user_id={user.id}"
+                    pdf_url = request.build_absolute_uri(reverse('transfer-receipt-pdf', args=[transfer.id])) + f"?user_id={user.id}"
+                    image_url = request.build_absolute_uri(reverse('transfer-receipt-image', args=[transfer.id])) + f"?user_id={user.id}"
+
+                    return Response({'message': 'Transfer created successfully', 'transfer': serializer.data, 'receipt_urls': {'html': html_url, 'pdf': pdf_url, 'image': image_url}}, status=status.HTTP_201_CREATED)
                 else:
                     transfer.status = 'failed'
                     transfer.save()
@@ -150,6 +166,122 @@ class TransferView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TransferReceiptView(APIView):
+    """Return a downloadable receipt (HTML) for a transfer."""
+
+    def get(self, request, transfer_id):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(id=user_id)
+            try:
+                transfer = Transfer.objects.get(id=transfer_id)
+            except Transfer.DoesNotExist:
+                return Response({'error': 'Transfer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Ensure the transfer belongs to the requesting user
+            if transfer.user_id != user.id:
+                return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+            account = Account.objects.get(user=user)
+
+            # Build context using existing service (same as email)
+            context = TransactionEmailService.get_email_context(user, account, transfer, email_type='debit')
+
+            rendered = render_to_string('receipts/transfer_receipt.html', context)
+
+            filename = f"{context['transaction_id']}_receipt.html"
+            response = HttpResponse(rendered, content_type='text/html; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Account.DoesNotExist:
+            return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TransferReceiptPDFView(APIView):
+    """Return a downloadable PDF receipt for a transfer."""
+
+    def get(self, request, transfer_id):
+        if pisa is None:
+            return Response({'error': 'PDF generation library not installed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(id=user_id)
+            try:
+                transfer = Transfer.objects.get(id=transfer_id)
+            except Transfer.DoesNotExist:
+                return Response({'error': 'Transfer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if transfer.user_id != user.id:
+                return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+            account = Account.objects.get(user=user)
+            context = TransactionEmailService.get_email_context(user, account, transfer, email_type='debit')
+            html = render_to_string('receipts/transfer_receipt.html', context)
+
+            result = io.BytesIO()
+            pdf = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+            if pdf.err:
+                return Response({'error': 'Failed to generate PDF'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            pdf_bytes = result.getvalue()
+            filename = f"{context['transaction_id']}_receipt.pdf"
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Account.DoesNotExist:
+            return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class TransferReceiptImageView(APIView):
+    """Return a downloadable PNG receipt for a transfer."""
+
+    def get(self, request, transfer_id):
+        if imgkit is None:
+            return Response({'error': 'Image generation library not installed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(id=user_id)
+            try:
+                transfer = Transfer.objects.get(id=transfer_id)
+            except Transfer.DoesNotExist:
+                return Response({'error': 'Transfer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if transfer.user_id != user.id:
+                return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+            account = Account.objects.get(user=user)
+            context = TransactionEmailService.get_email_context(user, account, transfer, email_type='debit')
+            html = render_to_string('receipts/transfer_receipt.html', context)
+
+            try:
+                img_bytes = imgkit.from_string(html, False, options={'format': 'png'})
+            except Exception as e:
+                return Response({'error': f'Failed to generate image: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            filename = f"{context['transaction_id']}_receipt.png"
+            response = HttpResponse(img_bytes, content_type='image/png')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Account.DoesNotExist:
+            return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class CreditCardDepositView(APIView):
     def post(self, request):

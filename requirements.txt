@@ -1,5 +1,11 @@
 # Cloudinary for image uploads
 cloudinary
+
+# PDF generation
+xhtml2pdf
+
+# Image generation (optional)
+imgkit
 asgiref==3.11.0
 dj-database-url==3.0.1
 Django==6.0

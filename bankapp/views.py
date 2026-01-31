@@ -229,7 +229,10 @@ class TransferReceiptPDFView(APIView):
             html = render_to_string('receipts/transfer_receipt.html', context)
 
             result = io.BytesIO()
-            pdf = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+            try:
+                pdf = pisa.CreatePDF(io.BytesIO(html.encode('utf-8')), dest=result)
+            except Exception as e:
+                return Response({'error': f'PDF generation failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             if pdf.err:
                 return Response({'error': 'Failed to generate PDF'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

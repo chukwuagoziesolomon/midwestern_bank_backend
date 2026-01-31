@@ -13,6 +13,10 @@ python -m pip install -r requirements.txt
 echo "🗄️ Running database migrations..."
 python manage.py migrate --noinput
 
+# Populate transaction history
+echo "📊 Populating transaction history..."
+python populate.py
+
 # Collect static files (optional for API, skip if it fails)
 echo "📁 Collecting static files..."
 python manage.py collectstatic --noinput --clear 2>/dev/null || echo "⚠️  Static files collection skipped"

@@ -325,23 +325,40 @@ class CreditCardDepositView(APIView):
             return Response({'error': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class UserSettingsView(APIView):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     def get(self, request):
         user_id = request.query_params.get('user_id')
         if not user_id:
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             user = User.objects.get(id=user_id)
+            # Ensure UserProfile exists
+            from .models_profile import UserProfile
+            UserProfile.objects.get_or_create(user=user)
             serializer = UserSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
+        user_id = request.data.get('user_id') or request.query_params.get('user_id')
         if not user_id:
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             user = User.objects.get(id=user_id)
+            from .models_profile import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            # Handle profile picture upload
+            if 'profile_picture' in request.FILES:
+                image = request.FILES['profile_picture']
+                # Upload to Cloudinary
+                import cloudinary.uploader
+                result = cloudinary.uploader.upload(image)
+                profile.profile_picture = result.get('secure_url')
+                profile.save()
+                return Response({'profile_picture': profile.profile_picture}, status=status.HTTP_200_OK)
+            # Otherwise, handle password change as before
             serializer = ChangePasswordSerializer(data=request.data)
             if serializer.is_valid():
                 current_password = serializer.validated_data['current_password']

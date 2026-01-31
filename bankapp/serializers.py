@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Transfer, CreditCardDeposit, Account
+from .models_profile import UserProfile
 
 class SignUpSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -45,9 +46,17 @@ class CreditCardDepositSerializer(serializers.ModelSerializer):
         return data
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_picture = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email']
+        fields = ['id', 'first_name', 'last_name', 'email', 'profile_picture']
+
+    def get_profile_picture(self, obj):
+        try:
+            return obj.profile.profile_picture
+        except UserProfile.DoesNotExist:
+            return None
 
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField()

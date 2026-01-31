@@ -112,7 +112,8 @@ class TransferView(APIView):
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             user = User.objects.get(id=user_id)
-            transfers = Transfer.objects.filter(user=user, is_populated=False).order_by('-date')
+            # Fetch both real and dummy transactions
+            transfers = Transfer.objects.filter(user=user).order_by('-date')
             serializer = TransferSerializer(transfers, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except User.DoesNotExist:

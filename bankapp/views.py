@@ -131,7 +131,7 @@ class TransferView(APIView):
             data['user'] = user.id
             serializer = TransferSerializer(data=data)
             if serializer.is_valid():
-                transfer = serializer.save()
+                transfer = serializer.save(user=user)
                 if account.available_balance >= transfer.amount:
                     account.available_balance -= transfer.amount
                     account.transfer_count += 1

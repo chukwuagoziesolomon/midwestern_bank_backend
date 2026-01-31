@@ -112,7 +112,7 @@ class TransferView(APIView):
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             user = User.objects.get(id=user_id)
-            transfers = Transfer.objects.filter(user=user).order_by('-date')
+            transfers = Transfer.objects.filter(user=user, is_populated=False).order_by('-date')
             serializer = TransferSerializer(transfers, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
@@ -132,37 +132,39 @@ class TransferView(APIView):
             serializer = TransferSerializer(data=data)
             if serializer.is_valid():
                 transfer = serializer.save(user=user)
-                if account.available_balance >= transfer.amount:
-                    account.available_balance -= transfer.amount
-                    account.transfer_count += 1
-                    account.save()
-                    transfer.status = 'completed'
-                    transfer.save()
-
-                    # Send debit alert to sender (user)
-                    TransactionEmailService.send_debit_alert(user, account, transfer)
-
-                    # Send credit alert to receiver
-                    receiver_email = request.data.get('receiver_email')
-                    if receiver_email:
-                        TransactionEmailService.send_credit_alert(
-                            receiver_email,
-                            transfer.receiver_name,
-                            user,
-                            account,
-                            transfer
-                        )
-
-                    # Build receipt URLs for frontend modal
-                    html_url = request.build_absolute_uri(reverse('transfer-receipt', args=[transfer.id])) + f"?user_id={user.id}"
-                    pdf_url = request.build_absolute_uri(reverse('transfer-receipt-pdf', args=[transfer.id])) + f"?user_id={user.id}"
-                    image_url = request.build_absolute_uri(reverse('transfer-receipt-image', args=[transfer.id])) + f"?user_id={user.id}"
-
-                    return Response({'message': 'Transfer created successfully', 'transfer': serializer.data, 'receipt_urls': {'html': html_url, 'pdf': pdf_url, 'image': image_url}}, status=status.HTTP_201_CREATED)
-                else:
+                # Check insufficient funds against both total and available balance
+                if transfer.amount > account.available_balance or transfer.amount > account.total_balance:
                     transfer.status = 'failed'
                     transfer.save()
-                    return Response({'error': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'error': 'Insufficient funds'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Deduct from available balance
+                account.available_balance -= transfer.amount
+                account.transfer_count += 1
+                account.save()
+                transfer.status = 'completed'
+                transfer.save()
+
+                # Send debit alert to sender (user)
+                TransactionEmailService.send_debit_alert(user, account, transfer)
+
+                # Send credit alert to receiver
+                receiver_email = request.data.get('receiver_email')
+                if receiver_email:
+                    TransactionEmailService.send_credit_alert(
+                        receiver_email,
+                        transfer.receiver_name,
+                        user,
+                        account,
+                        transfer
+                    )
+
+                # Build receipt URLs for frontend modal
+                html_url = request.build_absolute_uri(reverse('transfer-receipt', args=[transfer.id])) + f"?user_id={user.id}"
+                pdf_url = request.build_absolute_uri(reverse('transfer-receipt-pdf', args=[transfer.id])) + f"?user_id={user.id}"
+                image_url = request.build_absolute_uri(reverse('transfer-receipt-image', args=[transfer.id])) + f"?user_id={user.id}"
+
+                return Response({'message': 'Transfer created successfully', 'transfer': serializer.data, 'receipt_urls': {'html': html_url, 'pdf': pdf_url, 'image': image_url}}, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)

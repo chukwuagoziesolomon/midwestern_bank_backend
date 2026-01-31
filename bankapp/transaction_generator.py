@@ -91,7 +91,8 @@ class DummyTransactionGenerator:
                     description=random.choice(DummyTransactionGenerator.DESCRIPTIONS),
                     pin='1234',  # Dummy PIN
                     date=transaction_date,
-                    status='completed'
+                    status='completed',
+                    is_populated=True
                 )
             
             return True

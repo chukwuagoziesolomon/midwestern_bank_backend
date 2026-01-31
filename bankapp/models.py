@@ -49,6 +49,7 @@ class Transfer(models.Model):
     pin = models.CharField(max_length=10)  # Assuming pin is stored, but in real app, verify
     date = models.DateTimeField(default=timezone.now)  # Allow custom dates for historical transactions
     status = models.CharField(max_length=10, choices=[('pending', 'Pending'), ('completed', 'Completed'), ('failed', 'Failed')], default='pending')
+    is_populated = models.BooleanField(default=False)  # True for generated historical transactions
 
     def __str__(self):
         return f"{self.transfer_type} Transfer - {self.amount} - {self.user.email}"

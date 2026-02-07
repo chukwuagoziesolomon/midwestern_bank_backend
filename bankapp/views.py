@@ -38,6 +38,7 @@ class SignUpView(APIView):
             
             # Use password provided by user
             password = serializer.validated_data['password']
+            pin = serializer.validated_data['pin']
             user = User.objects.create_user(
                 username=email,  # Use email as username
                 email=email,
@@ -51,6 +52,7 @@ class SignUpView(APIView):
             cvc = ''.join(random.choices('0123456789', k=3))
             Account.objects.create(
                 user=user,
+                pin=pin,
                 generated_card_number=card_number,
                 generated_expiry=expiry,
                 generated_cvc=cvc
@@ -130,7 +132,7 @@ class TransferView(APIView):
                 return Response({'error': 'Transfer quota exceeded'}, status=status.HTTP_400_BAD_REQUEST)
             data = request.data.copy()
             data['user'] = user.id
-            serializer = TransferSerializer(data=data)
+            serializer = TransferSerializer(data=data, context={'user': user})
             if serializer.is_valid():
                 transfer = serializer.save(user=user)
                 # Check insufficient funds against both total and available balance

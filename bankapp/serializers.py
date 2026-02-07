@@ -5,10 +5,16 @@ from .models_profile import UserProfile
 
 class SignUpSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    pin = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'password']
+        fields = ['first_name', 'last_name', 'email', 'password', 'pin']
+
+    def validate_pin(self, value):
+        if not value.isdigit() or len(value) != 4:
+            raise serializers.ValidationError("PIN must be a 4-digit number.")
+        return value
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -31,7 +37,14 @@ class TransferSerializer(serializers.ModelSerializer):
                 if not data.get(field):
                     raise serializers.ValidationError(f"{field} is required for international transfers.")
         pin = data.get('pin')
-        if pin != '2027':
+        user = self.context.get('user')
+        if user is None:
+            raise serializers.ValidationError("User context is required for PIN validation.")
+        try:
+            account = Account.objects.get(user=user)
+        except Account.DoesNotExist:
+            raise serializers.ValidationError("Account not found for PIN validation.")
+        if pin != account.pin:
             raise serializers.ValidationError("Invalid PIN.")
         return data
 

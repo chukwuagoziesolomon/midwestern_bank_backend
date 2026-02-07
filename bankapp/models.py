@@ -11,6 +11,7 @@ class Account(models.Model):
     loans_due = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     mortgage_due = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     transfer_count = models.IntegerField(default=0)
+    pin = models.CharField(max_length=10, default='2027')
     generated_card_number = models.CharField(max_length=16, blank=True, null=True)
     generated_expiry = models.CharField(max_length=5, blank=True, null=True)  # MM/YY
     generated_cvc = models.CharField(max_length=3, blank=True, null=True)
